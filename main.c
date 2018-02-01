@@ -62,31 +62,36 @@ typedef enum {
 static uint8_t gFlow = FORWARD;	//0 for forward, 1 for reverse
 static uint8_t gState = RED;	//current led color
 static uint8_t gColorStopped = FALSE;//variable to tell if the color is stopped
-static PIT_Type gPit_0;			//PIT 0 base declaration
 
-void PORTA_IRQHandler() {		//SW3 interrupt service routine
-	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);//SW3 pin interrupt flag clearing
+void PORTA_IRQHandler() 		//SW3 interrupt service routine
+{
+	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4); //SW3 pin interrupt flag clearing
 	gFlow = (FORWARD == gFlow) ? REVERSE : FORWARD;		//flow variable toggle
 }
 
-void PORTC_IRQHandler() {		//SW2 interrupt service routine
-	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);//SW2 pin interrupt flag clearing
-	gColorStopped = (FALSE == gColorStopped) ? TRUE : FALSE;//color stopped variable toggle
+void PORTC_IRQHandler() 		//SW2 interrupt service routine
+{
+	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6); //SW2 pin interrupt flag clearing
+	gColorStopped = (FALSE == gColorStopped) ? TRUE : FALSE; //color stopped variable toggle
 }
 
 void PIT0_IRQHandler() {
-	PIT_ClearStatusFlags(&gPit_0, kPIT_Chnl_0, kPIT_TimerFlag);	//pit0 interrupt flag cleared
-	if (FORWARD == gFlow) {
-		if (BLUE > gState) {	//if the state is smaller than BLUE (2)
-			gState++;	//state increase
+	PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);	//pit0 interrupt flag cleared
+	if (FALSE == gColorStopped) {
+		if (FORWARD == gFlow) {
+			if (BLUE > gState) //if the state is smaller than BLUE (2)
+					{
+				gState++;	//state increase
+			} else {
+				gState = RED;	//state reset to RED (0)
+			}
 		} else {
-			gState = RED;	//state reset to RED (0)
-		}
-	} else {
-		if (RED < gState) {		//if the state is bigger than RED (0)
-			gState--;	//state increase
-		} else {
-			gState = BLUE;	//state reset to BLUE (2)
+			if (RED < gState) //if the state is bigger than RED (0)
+					{
+				gState--;	//state increase
+			} else {
+				gState = BLUE;	//state reset to BLUE (2)
+			}
 		}
 	}
 }
@@ -131,17 +136,17 @@ int main(void) {
 	//PIT timer configuration
 	pit_config_t config_pit;
 	PIT_GetDefaultConfig(&config_pit);
-	PIT_Init(&gPit_0, &config_pit);
-	PIT_SetTimerPeriod(&gPit_0, kPIT_Chnl_0, 21000000);	//pit timer set to interrupt every second
+	PIT_Init(PIT, &config_pit);
+	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 21000000);	//pit timer set to interrupt every second
 
 	//interrupts configuration
 	NVIC_EnableIRQ(PORTA_IRQn);		//SW3 interrupt enabled
 	NVIC_EnableIRQ(PORTC_IRQn);		//SW2 interrupt enabled
 	NVIC_EnableIRQ(PIT0_IRQn);		//PIT 0 interrupt enabled
-	PIT_EnableInterrupts(&gPit_0, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
 
 	//pit timer enabling
-	PIT_StartTimer(&gPit_0, kPIT_Chnl_0);
+	PIT_StartTimer(PIT, kPIT_Chnl_0);
 
 	//program super loop
 	for (;;) {
