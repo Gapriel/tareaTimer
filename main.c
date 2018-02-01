@@ -62,6 +62,7 @@ typedef enum {
 static uint8_t gFlow = FORWARD;	//0 for forward, 1 for reverse
 static uint8_t gState = RED;	//current led color
 static uint8_t gColorStopped = FALSE;//variable to tell if the color is stopped
+static const uint8_t gPeriod = 1;
 
 void PORTA_IRQHandler() 		//SW3 interrupt service routine
 {
@@ -137,7 +138,7 @@ int main(void) {
 	pit_config_t config_pit;
 	PIT_GetDefaultConfig(&config_pit);
 	PIT_Init(PIT, &config_pit);
-	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, 21000000);	//pit timer set to interrupt every second
+	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, gPeriod*CLOCK_GetBusClkFreq());	//pit timer set to interrupt every second
 
 	//interrupts configuration
 	NVIC_EnableIRQ(PORTA_IRQn);		//SW3 interrupt enabled
