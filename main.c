@@ -55,8 +55,13 @@ typedef enum {
 	RED, GREEN, BLUE
 } color_state_t;
 
+typedef enum {
+	FALSE, TRUE
+} boolean_type_t;
+
 static uint8_t gFlow = FORWARD;	//0 for forward, 1 for reverse
 static uint8_t gState = RED;	//current led color
+static uint8_t gColorStopped = FALSE;//variable to tell if the color is stopped
 static PIT_Type gPit_0;			//PIT 0 base declaration
 
 void PORTA_IRQHandler() {		//SW3 interrupt service routine
@@ -66,7 +71,7 @@ void PORTA_IRQHandler() {		//SW3 interrupt service routine
 
 void PORTC_IRQHandler() {		//SW2 interrupt service routine
 	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);//SW2 pin interrupt flag clearing
-
+	gColorStopped = (FALSE == gColorStopped) ? TRUE : FALSE;//color stopped variable toggle
 }
 
 void PIT0_IRQHandler() {
@@ -93,6 +98,7 @@ int main(void) {
 	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortC);
 	CLOCK_EnableClock(kCLOCK_PortE);
+	CLOCK_EnableClock(kCLOCK_Pit0);
 
 	//led ports configuration
 	port_pin_config_t config_led = { kPORT_PullDisable, kPORT_SlowSlewRate,
@@ -109,7 +115,7 @@ int main(void) {
 	PORT_SetPinConfig(PORTA, 4, &config_switch);
 	PORT_SetPinConfig(PORTC, 6, &config_switch);
 	PORT_SetPinInterruptConfig(PORTA, 4, kPORT_InterruptFallingEdge);
-	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
+	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptEitherEdge);
 
 	//leds gpio configuration
 	gpio_pin_config_t led_config_gpio = { kGPIO_DigitalOutput, 1 };
@@ -127,34 +133,36 @@ int main(void) {
 	PIT_GetDefaultConfig(&config_pit);
 	PIT_Init(&gPit_0, &config_pit);
 	PIT_SetTimerPeriod(&gPit_0, kPIT_Chnl_0, 21000000);	//pit timer set to interrupt every second
-	PIT_EnableInterrupts(&gPit_0, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
 
 	//interrupts configuration
 	NVIC_EnableIRQ(PORTA_IRQn);		//SW3 interrupt enabled
 	NVIC_EnableIRQ(PORTC_IRQn);		//SW2 interrupt enabled
 	NVIC_EnableIRQ(PIT0_IRQn);		//PIT 0 interrupt enabled
+	PIT_EnableInterrupts(&gPit_0, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
 
 	//pit timer enabling
 	PIT_StartTimer(&gPit_0, kPIT_Chnl_0);
 
 	//program super loop
 	for (;;) {
-		switch (gState) {
-		case RED:
-			GPIO_WritePinOutput(GPIOB, 21, 1);
-			GPIO_WritePinOutput(GPIOB, 22, 0);
-			GPIO_WritePinOutput(GPIOE, 26, 1);
-			break;
-		case GREEN:
-			GPIO_WritePinOutput(GPIOB, 21, 1);
-			GPIO_WritePinOutput(GPIOB, 22, 1);
-			GPIO_WritePinOutput(GPIOE, 26, 0);
-			break;
-		case BLUE:
-			GPIO_WritePinOutput(GPIOB, 21, 0);
-			GPIO_WritePinOutput(GPIOB, 22, 1);
-			GPIO_WritePinOutput(GPIOE, 26, 1);
-			break;
+		if (FALSE == gColorStopped) {
+			switch (gState) {
+			case RED:
+				GPIO_WritePinOutput(GPIOB, 21, 1);
+				GPIO_WritePinOutput(GPIOB, 22, 0);
+				GPIO_WritePinOutput(GPIOE, 26, 1);
+				break;
+			case GREEN:
+				GPIO_WritePinOutput(GPIOB, 21, 1);
+				GPIO_WritePinOutput(GPIOB, 22, 1);
+				GPIO_WritePinOutput(GPIOE, 26, 0);
+				break;
+			case BLUE:
+				GPIO_WritePinOutput(GPIOB, 21, 0);
+				GPIO_WritePinOutput(GPIOB, 22, 1);
+				GPIO_WritePinOutput(GPIOE, 26, 1);
+				break;
+			}
 		}
 	}
 	return 0;
